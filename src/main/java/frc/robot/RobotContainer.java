@@ -1,4 +1,4 @@
-// Copyright (c) FIRST and other WPILib contributors.
+ // Copyright (c) FIRST and other WPILib contributors.
 // Open Source Software; you can modify and/or share it under the terms of
 // the WPILib BSD license file in the root directory of this project.
 
@@ -11,14 +11,10 @@ import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+
 import static frc.robot.Constants.OperatorConstants.*;
 
 import frc.robot.commands.Drive;
-import frc.robot.commands.Eject;
-import frc.robot.commands.ExampleAuto;
-import frc.robot.commands.FeederRoller;
-import frc.robot.commands.IntakeRoller;
-import frc.robot.commands.VariableChanged;
 import frc.robot.subsystems.CANDriveSubsystem;
 import frc.robot.subsystems.CANFuelSubsystem;
 
@@ -32,7 +28,8 @@ import frc.robot.subsystems.CANFuelSubsystem;
 //import frc.robot.subsystems.NavXSubsystem;
 public class RobotContainer {
   // The robot's subsystems
-    private final DataSystem dataSystem = new DataSystem();
+  private final DataSystem dataSystem = new DataSystem();
+  
 
   private final CANDriveSubsystem driveSubsystem = new CANDriveSubsystem(dataSystem);
   private final CANFuelSubsystem fuelSubsystem = new CANFuelSubsystem();
@@ -59,7 +56,9 @@ public class RobotContainer {
     // Set the options to show up in the Dashboard for selecting auto modes. If you
     // add additional auto modes you can add additional lines here with
     // autoChooser.addOption
-    autoChooser.setDefaultOption("Autonomous", new ExampleAuto(driveSubsystem, fuelSubsystem));
+   // autoChooser.setDefaultOption("Autonomous", new Command() {
+      
+   // });
 
   }
 
@@ -77,16 +76,45 @@ public class RobotContainer {
   private void configureBindings() {
 
     // While the left bumper on operator controller is held, intake Fuel
-    operatorController.leftBumper().whileTrue(new IntakeRoller(fuelSubsystem,speedVariables));
+    // operatorController.leftBumper().whileTrue(new IntakeRoller(fuelSubsystem,speedVariables));
     // While the right bumper on the operator controller is held, spin up for 1
     // second, then launch fuel. When the button is released, stop.
-    operatorController.rightBumper().whileTrue(new FeederRoller(fuelSubsystem,speedVariables));
+    // operatorController.rightBumper().whileTrue(new FeederRoller(fuelSubsystem,speedVariables));
     // While the A button is held on the operator controller, eject fuel back out
     // the intake
-    operatorController.x().whileTrue(new VariableChanged(speedVariables, 'x'));
-    operatorController.b().whileTrue(new VariableChanged(speedVariables, 'b'));
 
-    operatorController.leftStick().whileTrue(new Eject(fuelSubsystem));
+    
+
+    operatorController.leftTrigger().whileTrue(new Command() {
+      @Override
+      public void execute() {
+        fuelSubsystem.setFeederSpeed(-1d);
+      }
+    });
+    operatorController.rightTrigger().whileTrue(new Command() {
+      @Override
+      public void execute() {
+        fuelSubsystem.setIntakeSpeed(-1d);
+      }
+    });
+    operatorController.rightBumper().whileTrue(new Command() {
+      @Override
+      public void execute() {
+        fuelSubsystem.setIntakeSpeed(.75d);
+      }
+    });
+    operatorController.leftBumper().whileTrue(new Command() {
+      @Override
+      public void execute() {
+        fuelSubsystem.setFeederSpeed(1d);
+      }
+    });
+    
+    
+    
+    
+
+    //operatorController.leftStick().whileTrue(new Eject(fuelSubsystem));
 
     // operatorController.x().whileTrue(new ChangeSpeed(12.d));
     // operatorController.y().whileTrue(new ChangeSpeed(9.d));
@@ -97,6 +125,16 @@ public class RobotContainer {
     // controller. The Y axis of the controller is inverted so that pushing the
     // stick away from you (a negative value) drives the robot forwards (a positive
     // value)
+    driverController.leftStick().whileTrue(new Command() {
+      @Override
+      public void initialize() {
+        driveSubsystem.setSprint(true);
+      }
+      @Override
+      public void end(boolean interrupted) {
+        driveSubsystem.setSprint(false);
+      }
+    });
     driveSubsystem.setDefaultCommand(new Drive(driveSubsystem, driverController));
 
     fuelSubsystem.setDefaultCommand(fuelSubsystem.run(() -> fuelSubsystem.stop()));

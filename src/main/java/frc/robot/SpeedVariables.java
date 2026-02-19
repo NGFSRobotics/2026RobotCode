@@ -6,11 +6,11 @@ public class SpeedVariables {
     public boolean intakeReverse = false;
     public boolean launch = false;   
 
-    public void toggleIntake() {
-        intakeReverse = !intakeReverse;
+    public void toggleIntake(boolean set) {
+        intakeReverse = set;
 
     }
-    public void toggleLaunch() {
-        launch = !launch;
+    public void toggleLaunch(boolean set) {
+        launch = set;
     }
 }

@@ -29,6 +29,8 @@ public class CANDriveSubsystem extends SubsystemBase {
   private final DifferentialDrive drive;
   private DriveMode mode = DRIVE_MODE;
 
+  private boolean sprint = false;
+
   public CANDriveSubsystem(DataSystem d) {
     dataSystem = d;
     // create brushed motors for drive
@@ -87,15 +89,19 @@ public class CANDriveSubsystem extends SubsystemBase {
 
   }
 
+  public void setSprint(boolean value) {
+    sprint = value;
+  }
+
   public void drive(double leftX, double leftY, double rightX, double rightY) {
     if (mode == DriveMode.TANK) {
-      drive.tankDrive(rightY * Constants.OperatorConstants.DRIVE_SCALING,leftY * Constants.OperatorConstants.DRIVE_SCALING);
+      drive.tankDrive(rightY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING,leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING);
       
     }else if (mode == DriveMode.ARCADE1) {
 
-      drive.arcadeDrive(leftY * Constants.OperatorConstants.DRIVE_SCALING, leftX);
+      drive.arcadeDrive(leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING, leftX);
     }else if (mode == DriveMode.ARCADE2) {
-      drive.arcadeDrive(leftY * Constants.OperatorConstants.DRIVE_SCALING, rightX);
+      drive.arcadeDrive(leftY  * (sprint ? 2 : 1)* Constants.OperatorConstants.DRIVE_SCALING, rightX);
     }
   }
 

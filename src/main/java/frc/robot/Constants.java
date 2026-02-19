@@ -55,10 +55,10 @@ public final class Constants {
     // positive = forwards
     // ALWAYS PUT A LOWERCASE d AT THE END OF THESE NUMBERS
     // DO NOT MODIFY ANY OTHER VARIABLE BUT THESE 
-    public static final double LAUNCH_VOLTAGE = 12d;
-    public static final double INTAKE_VOLTAGE = 7d;
-    public static final double FEEDER_FORWARD_SPEED = 6d;
-    public static final double FEEDER_REVERSE_SPEED = -6d;
+    public static final double LAUNCH_SPEED = 1;
+    public static final double INTAKE_SPEED = 0.73;
+    public static final double FEEDER_FORWARD_SPEED = -1;
+    public static final double FEEDER_REVERSE_SPEED = 1;
     // DO NOT MODIFY ANY OTHER VARIABLE BUT THESE ^^^^^^
 
   }
@@ -71,7 +71,7 @@ public final class Constants {
 
     // This value is multiplied by the joystick value when rotating the robot to
     // help avoid turning too fast and beign difficult to control
-    public static final double DRIVE_SCALING = .7;
+    public static final double DRIVE_SCALING = .8;
     public static final double ROTATION_SCALING = .8;
   }
 
