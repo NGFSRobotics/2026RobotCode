@@ -6,6 +6,7 @@ package frc.robot;
 
 import java.util.Timer;
 import java.util.TimerTask;
+
 import edu.wpi.first.wpilibj.GenericHID.RumbleType;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -15,8 +16,15 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import static frc.robot.Constants.OperatorConstants.*;
 
 import frc.robot.commands.Drive;
+import frc.robot.commands.EjectIntake;
+import frc.robot.commands.FeederIntake;
+import frc.robot.commands.Intake;
+import frc.robot.commands.Launch;
+import frc.robot.commands.ReverseFeeder;
+import frc.robot.commands.Sprint;
 import frc.robot.subsystems.CANDriveSubsystem;
 import frc.robot.subsystems.CANFuelSubsystem;
+import frc.robot.subsystems.NavXSubsystem;
 
 /**
  * This class is where the bulk of the robot should be declared. Since
@@ -29,11 +37,9 @@ import frc.robot.subsystems.CANFuelSubsystem;
 public class RobotContainer {
   // The robot's subsystems
   private final DataSystem dataSystem = new DataSystem();
-  
-
+  private final NavXSubsystem navXSubsystem = new NavXSubsystem();
   private final CANDriveSubsystem driveSubsystem = new CANDriveSubsystem(dataSystem);
   private final CANFuelSubsystem fuelSubsystem = new CANFuelSubsystem();
-  private SpeedVariables speedVariables = new SpeedVariables();
   //private final NavXSubsystem navXSubsystem = new NavXSubsystem();
   // The driver's controller
   private final CommandXboxController driverController = new CommandXboxController(
@@ -84,60 +90,25 @@ public class RobotContainer {
     // the intake
 
     
-
-    operatorController.leftTrigger().whileTrue(new Command() {
-      @Override
-      public void execute() {
-        fuelSubsystem.setFeederSpeed(-1d);
-      }
-    });
-    operatorController.rightTrigger().whileTrue(new Command() {
-      @Override
-      public void execute() {
-        fuelSubsystem.setIntakeSpeed(-1d);
-      }
-    });
-    operatorController.rightBumper().whileTrue(new Command() {
-      @Override
-      public void execute() {
-        fuelSubsystem.setIntakeSpeed(.75d);
-      }
-    });
-    operatorController.leftBumper().whileTrue(new Command() {
-      @Override
-      public void execute() {
-        fuelSubsystem.setFeederSpeed(1d);
-      }
-    });
-    
-    
-    
+    // feeder intake
+    operatorController.leftBumper().whileTrue(new FeederIntake(fuelSubsystem));
+    operatorController.leftTrigger().whileTrue(new ReverseFeeder(fuelSubsystem));
+    operatorController.rightTrigger().whileTrue(new Launch(fuelSubsystem, operatorController));
+    operatorController.rightBumper().whileTrue(new Intake(fuelSubsystem));
+    operatorController.b().whileTrue(new EjectIntake(fuelSubsystem));
     
 
-    //operatorController.leftStick().whileTrue(new Eject(fuelSubsystem));
-
-    // operatorController.x().whileTrue(new ChangeSpeed(12.d));
-    // operatorController.y().whileTrue(new ChangeSpeed(9.d));
-    // operatorController.b().whileTrue(new ChangeSpeed(6.d));
-    // operatorController.a().whileTrue(new ChangeSpeed(3.d));
     // Set the default command for the drive subsystem to the command provided by
     // factory with the values provided by the joystick axes on the driver
     // controller. The Y axis of the controller is inverted so that pushing the
     // stick away from you (a negative value) drives the robot forwards (a positive
     // value)
-    driverController.leftStick().whileTrue(new Command() {
-      @Override
-      public void initialize() {
-        driveSubsystem.setSprint(true);
-      }
-      @Override
-      public void end(boolean interrupted) {
-        driveSubsystem.setSprint(false);
-      }
-    });
-    driveSubsystem.setDefaultCommand(new Drive(driveSubsystem, driverController));
 
+    driverController.leftStick().whileTrue(new Sprint(driveSubsystem));
+
+    driveSubsystem.setDefaultCommand(new Drive(driveSubsystem, driverController));
     fuelSubsystem.setDefaultCommand(fuelSubsystem.run(() -> fuelSubsystem.stop()));
+
   }
 
   /**

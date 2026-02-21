@@ -9,6 +9,7 @@ import com.revrobotics.spark.SparkBase.ResetMode;
 import com.revrobotics.spark.SparkLowLevel.MotorType;
 import com.revrobotics.spark.SparkMax;
 import com.revrobotics.spark.config.SparkMaxConfig;
+import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 
 import edu.wpi.first.wpilibj.drive.DifferentialDrive;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
@@ -25,6 +26,7 @@ public class CANDriveSubsystem extends SubsystemBase {
   private final SparkMax rightFollower;
   private final DataSystem dataSystem;
   
+  private double brakeValue = 0d;
 
   private final DifferentialDrive drive;
   private DriveMode mode = DRIVE_MODE;
@@ -59,7 +61,7 @@ public class CANDriveSubsystem extends SubsystemBase {
     SparkMaxConfig config = new SparkMaxConfig();
     config.voltageCompensation(12);
     config.smartCurrentLimit(DRIVE_MOTOR_CURRENT_LIMIT);
-
+    config.idleMode(IdleMode.kBrake);
     // Set configuration to follow each leader and then apply it to corresponding
     // follower. Resetting in case a new controller is swapped
     // in and persisting in case of a controller reset due to breaker trip
@@ -75,6 +77,7 @@ public class CANDriveSubsystem extends SubsystemBase {
     // so that postive values drive both sides forward
     config.inverted(true);
     leftLeader.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);
+
   }
 
   @Override
@@ -93,15 +96,16 @@ public class CANDriveSubsystem extends SubsystemBase {
     sprint = value;
   }
 
+
   public void drive(double leftX, double leftY, double rightX, double rightY) {
     if (mode == DriveMode.TANK) {
-      drive.tankDrive(rightY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING,leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING);
+      drive.tankDrive(leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING, rightY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING);
       
     }else if (mode == DriveMode.ARCADE1) {
 
-      drive.arcadeDrive(leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING, leftX);
+      drive.arcadeDrive(leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), leftX);
     }else if (mode == DriveMode.ARCADE2) {
-      drive.arcadeDrive(leftY  * (sprint ? 2 : 1)* Constants.OperatorConstants.DRIVE_SCALING, rightX);
+      drive.arcadeDrive(leftY  * (sprint ? 2 : 1)* Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), rightX);
     }
   }
 

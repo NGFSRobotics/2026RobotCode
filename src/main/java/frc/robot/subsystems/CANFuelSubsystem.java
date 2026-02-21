@@ -20,6 +20,7 @@ public class CANFuelSubsystem extends SubsystemBase {
 
   private boolean intakeRunning = false;
   private double intakeSpeed = 0.d;
+  public boolean launchDebounce = false;
   
   /** Creates a new CANBallSubsystem. */
   public CANFuelSubsystem() {
@@ -49,9 +50,7 @@ public class CANFuelSubsystem extends SubsystemBase {
   }
 
   // A method to set the voltage of the intake roller
-  public void setIntakeLauncherRoller(double voltage) {
-    intakeLauncherRoller.setVoltage(voltage);
-  }
+  
 
   public void setIntakeSpeed(double speed) {
     intakeLauncherRoller.set(speed);
@@ -73,10 +72,15 @@ public class CANFuelSubsystem extends SubsystemBase {
     
   }
 
-  // A method to set the voltage of the intake roller
-  public void setFeederRoller(double voltage) {
-    feederRoller.setVoltage(voltage);
+  public boolean isLaunchDebounce() {
+    return launchDebounce;
   }
+
+  public void setLauchDebounce(boolean value) {
+    launchDebounce = value;
+  }
+
+ 
 
   // A method to stop the rollers
   public void stop() {
