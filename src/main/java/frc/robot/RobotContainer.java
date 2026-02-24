@@ -21,7 +21,7 @@ import frc.robot.commands.FeederIntake;
 import frc.robot.commands.Intake;
 import frc.robot.commands.Launch;
 import frc.robot.commands.ReverseFeeder;
-import frc.robot.commands.Sprint;
+import frc.robot.commands.ModifySpeed;
 import frc.robot.subsystems.CANDriveSubsystem;
 import frc.robot.subsystems.CANFuelSubsystem;
 import frc.robot.subsystems.NavXSubsystem;
@@ -90,7 +90,6 @@ public class RobotContainer {
     // the intake
 
     
-    // feeder intake
     operatorController.leftBumper().whileTrue(new FeederIntake(fuelSubsystem));
     operatorController.leftTrigger().whileTrue(new ReverseFeeder(fuelSubsystem));
     operatorController.rightTrigger().whileTrue(new Launch(fuelSubsystem, operatorController));
@@ -104,8 +103,8 @@ public class RobotContainer {
     // stick away from you (a negative value) drives the robot forwards (a positive
     // value)
 
-    driverController.leftStick().whileTrue(new Sprint(driveSubsystem));
-
+    driverController.leftBumper().whileTrue(new ModifySpeed(driveSubsystem,2d));
+    driverController.rightBumper().whileTrue(new ModifySpeed(driveSubsystem, 0.7));
     driveSubsystem.setDefaultCommand(new Drive(driveSubsystem, driverController));
     fuelSubsystem.setDefaultCommand(fuelSubsystem.run(() -> fuelSubsystem.stop()));
 

@@ -31,7 +31,7 @@ public class CANDriveSubsystem extends SubsystemBase {
   private final DifferentialDrive drive;
   private DriveMode mode = DRIVE_MODE;
 
-  private boolean sprint = false;
+  private double speedModifier = 1d;
 
   public CANDriveSubsystem(DataSystem d) {
     dataSystem = d;
@@ -92,20 +92,20 @@ public class CANDriveSubsystem extends SubsystemBase {
 
   }
 
-  public void setSprint(boolean value) {
-    sprint = value;
+  public void setSpeedModifier(double val) {
+    speedModifier = val;
   }
 
 
   public void drive(double leftX, double leftY, double rightX, double rightY) {
     if (mode == DriveMode.TANK) {
-      drive.tankDrive(leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING, rightY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING);
+      drive.tankDrive(leftY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING, rightY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING);
       
     }else if (mode == DriveMode.ARCADE1) {
 
-      drive.arcadeDrive(leftY * (sprint ? 2 : 1) * Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), leftX);
+      drive.arcadeDrive(leftY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), leftX);
     }else if (mode == DriveMode.ARCADE2) {
-      drive.arcadeDrive(leftY  * (sprint ? 2 : 1)* Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), rightX);
+      drive.arcadeDrive(leftY  * speedModifier* Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), rightX);
     }
   }
 
