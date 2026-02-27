@@ -90,11 +90,13 @@ public class RobotContainer {
     // the intake
 
     
+    // feeder intake
     operatorController.leftBumper().whileTrue(new FeederIntake(fuelSubsystem));
     operatorController.leftTrigger().whileTrue(new ReverseFeeder(fuelSubsystem));
     operatorController.rightTrigger().whileTrue(new Launch(fuelSubsystem, operatorController));
     operatorController.rightBumper().whileTrue(new Intake(fuelSubsystem));
     operatorController.b().whileTrue(new EjectIntake(fuelSubsystem));
+    operatorController.a().whileTrue(new EjectIntake(fuelSubsystem));
     
 
     // Set the default command for the drive subsystem to the command provided by
@@ -103,8 +105,8 @@ public class RobotContainer {
     // stick away from you (a negative value) drives the robot forwards (a positive
     // value)
 
-    driverController.leftBumper().whileTrue(new ModifySpeed(driveSubsystem,2d));
-    driverController.rightBumper().whileTrue(new ModifySpeed(driveSubsystem, 0.7));
+    driverController.leftBumper().whileTrue(new ModifySpeed(driveSubsystem,1.3d));
+    driverController.rightBumper().whileTrue(new ModifySpeed(driveSubsystem, 0.85));
     driveSubsystem.setDefaultCommand(new Drive(driveSubsystem, driverController));
     fuelSubsystem.setDefaultCommand(fuelSubsystem.run(() -> fuelSubsystem.stop()));
 
