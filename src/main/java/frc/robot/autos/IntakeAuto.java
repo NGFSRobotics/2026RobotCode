@@ -5,43 +5,24 @@
 package frc.robot.autos;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.ParallelCommandGroup;
+import frc.robot.commands.FeederIntake;
+import frc.robot.commands.Intake;
 import frc.robot.subsystems.CANFuelSubsystem;
 
 /* You should consider using the more terse Command factories API instead https://docs.wpilib.org/en/stable/docs/software/commandbased/organizing-command-based.html#defining-commands */
-public class IntakeAuto extends Command {
+public class IntakeAuto extends ParallelCommandGroup {
   /** Creates a new Drive. */
   CANFuelSubsystem fuelSubsystem;
-
+  Intake intakeCommand;
+  FeederIntake feederIntakeCommand;
   public IntakeAuto(CANFuelSubsystem fuelSystem) {
     // Use addRequirements() here to declare subsystem dependencies.
-    addRequirements(fuelSubsystem);
     fuelSubsystem = fuelSystem;
-  }
-
-  // Called when the command is initially scheduled.
-  @Override
-  public void initialize() {
-  }
-
-  // Called every time the scheduler runs while the command is scheduled.
-  // The Y axis of the controller is inverted so that pushing the
-  // stick away from you (a negative value) drives the robot forwards (a positive
-  // value). The X axis is scaled down so the rotation is more easily
-  // controllable.
-  @Override
-  public void execute() {
-
-  }
-
-  // Called once the command ends or is interrupted.
-  @Override
-  public void end(boolean interrupted) {
-
-  }
-
-  // Returns true when the command should end.
-  @Override
-  public boolean isFinished() {
-    return false;
+    addCommands(
+      new Intake(fuelSubsystem).withTimeout(5d)
+      //new FeederIntake(fuelSubsystem)
+    );
+   
   }
 }

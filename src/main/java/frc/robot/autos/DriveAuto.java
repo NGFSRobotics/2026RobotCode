@@ -15,8 +15,8 @@ public class DriveAuto extends Command {
 
   public DriveAuto(CANDriveSubsystem driveSystem) {
     // Use addRequirements() here to declare subsystem dependencies.
-    addRequirements(driveSystem);
     driveSubsystem = driveSystem;
+    
   }
 
   // Called when the command is initially scheduled.

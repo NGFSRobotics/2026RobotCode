@@ -16,6 +16,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 import static frc.robot.Constants.OperatorConstants.*;
 
 import frc.robot.autos.Auto;
+import frc.robot.autos.ParallelAuto;
 import frc.robot.commands.Drive;
 import frc.robot.commands.EjectIntake;
 import frc.robot.commands.FeederIntake;
@@ -51,7 +52,6 @@ public class RobotContainer {
       OPERATOR_CONTROLLER_PORT);
 
   // The autonomous chooser
-  private final SendableChooser<Command> autoChooser = new SendableChooser<>();
 
   /**
    * The container for the robot. Contains subsystems, OI devices, and commands.
@@ -65,9 +65,7 @@ public class RobotContainer {
     // autoChooser.addOption
    // autoChooser.setDefaultOption("Autonomous", new Command() {
       
-   // });
-    autoChooser.setDefaultOption("Auto", new Auto(driveSubsystem, fuelSubsystem));
-
+   // });    
   }
 
   /**
@@ -121,7 +119,7 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
-    return autoChooser.getSelected();
+    return new ParallelAuto(driveSubsystem, fuelSubsystem).withTimeout(5d);
   }
   private boolean debounce = false;
   public void Rumble() {

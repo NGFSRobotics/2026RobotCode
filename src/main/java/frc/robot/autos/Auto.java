@@ -1,6 +1,8 @@
 package frc.robot.autos;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.ParallelCommandGroup;
 import edu.wpi.first.wpilibj2.command.SequentialCommandGroup;
 import frc.robot.commands.FeederIntake;
 import frc.robot.commands.Intake;
@@ -11,16 +13,19 @@ public class Auto extends Command {
     CANDriveSubsystem driveSubsystem;
     CANFuelSubsystem fuelSubsystem;
     public Auto(CANDriveSubsystem d,CANFuelSubsystem f) {
-        addRequirements(driveSubsystem,fuelSubsystem);
         driveSubsystem = d;
         fuelSubsystem = f;
+        addRequirements(driveSubsystem);
+        addRequirements(fuelSubsystem);
+        System.out.println("constructor");
+
     }
 
     @Override
     public void initialize() {
-        new Intake(fuelSubsystem).withTimeout(10d);
-        new FeederIntake(fuelSubsystem).withTimeout(10d);
-        new SequentialCommandGroup(new DriveAuto(driveSubsystem).withTimeout(4d));
+        System.out.println("auto");
+        
+       
     }
 
     @Override
@@ -29,5 +34,9 @@ public class Auto extends Command {
 
 
         
+    }
+    @Override
+    public void end(boolean interrupted) {
+        System.out.println("end");
     }
 }

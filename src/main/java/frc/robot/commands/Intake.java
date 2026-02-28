@@ -13,9 +13,5 @@ public class Intake extends Command {
     public void execute() {
         fuelSubsystem.setIntakeSpeed(.75d);
     }
-    
-    @Override
-    public void end(boolean interrupted) {
-        fuelSubsystem.setIntakeSpeed(0d);
-    }
+
 }
