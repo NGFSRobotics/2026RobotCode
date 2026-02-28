@@ -11,8 +11,6 @@ public class ExampleCommand extends Command {
 
     @Override
     public void execute() {
-        if (!fuelSubsystem.isLaunchDebounce()) {
-            fuelSubsystem.setFeederSpeed(1d);
-        }
+        
     }
 }

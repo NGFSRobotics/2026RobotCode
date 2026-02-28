@@ -15,6 +15,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import static frc.robot.Constants.OperatorConstants.*;
 
+import frc.robot.autos.Auto;
 import frc.robot.commands.Drive;
 import frc.robot.commands.EjectIntake;
 import frc.robot.commands.FeederIntake;
@@ -65,6 +66,7 @@ public class RobotContainer {
    // autoChooser.setDefaultOption("Autonomous", new Command() {
       
    // });
+    autoChooser.setDefaultOption("Auto", new Auto(driveSubsystem, fuelSubsystem));
 
   }
 
