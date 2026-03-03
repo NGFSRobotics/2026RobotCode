@@ -14,13 +14,13 @@ import frc.robot.subsystems.CANFuelSubsystem;
 // NOTE:  Consider using this command inline, rather than writing a subclass.  For more
 // information, see:
 // https://docs.wpilib.org/en/stable/docs/software/commandbased/convenience-features.html
-public class ParallelAuto extends ParallelCommandGroup {
+public class ParallelAuto extends SequentialCommandGroup {
   /** Creates a new ParallelAuto. */
   public ParallelAuto(CANDriveSubsystem driveSubsystem, CANFuelSubsystem fuelSubsystem) {
     // Add your commands in the addCommands() call, e.g.
     // addCommands(new FooCommand(), new BarCommand());
     addCommands( 
-      new IntakeAuto(fuelSubsystem)
+      new IntakeAuto(fuelSubsystem).withTimeout(5d)
       // new SequentialCommandGroup(new DriveAuto(driveSubsystem).withTimeout(2d))
     );
   }

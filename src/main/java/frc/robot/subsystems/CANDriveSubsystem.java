@@ -109,8 +109,8 @@ public class CANDriveSubsystem extends SubsystemBase {
     }
   }
 
-  public void autoDrive(double xSpeed, double zRotation) {
-    drive.arcadeDrive(xSpeed * Constants.OperatorConstants.DRIVE_SCALING, zRotation);
+  public void autoDrive(double leftWheels, double rightWheels,double speed) {
+    drive.tankDrive(leftWheels * Constants.OperatorConstants.DRIVE_SCALING * speed, rightWheels * Constants.OperatorConstants.DRIVE_SCALING * speed);
   }
 
   private double[] getSparkMaxData(SparkMax sparkMax) {

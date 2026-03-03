@@ -119,7 +119,7 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
-    return new ParallelAuto(driveSubsystem, fuelSubsystem).withTimeout(5d);
+    return new Auto(driveSubsystem, fuelSubsystem);
   }
   private boolean debounce = false;
   public void Rumble() {
