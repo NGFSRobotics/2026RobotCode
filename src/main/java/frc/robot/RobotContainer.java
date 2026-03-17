@@ -15,7 +15,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 
 import static frc.robot.Constants.OperatorConstants.*;
 
-import frc.robot.autos.Auto;
+import frc.robot.autos.MoveAuto;
 import frc.robot.autos.ParallelAuto;
 import frc.robot.commands.Drive;
 import frc.robot.commands.EjectIntake;
@@ -119,7 +119,7 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
-    return new Auto(driveSubsystem, fuelSubsystem);
+    return new MoveAuto(driveSubsystem, fuelSubsystem);
   }
   private boolean debounce = false;
   public void Rumble() {

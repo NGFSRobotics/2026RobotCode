@@ -5,7 +5,7 @@ import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CANDriveSubsystem;
 import frc.robot.subsystems.CANFuelSubsystem;
 
-public class Auto extends Command {
+public class MoveAuto extends Command {
     CANDriveSubsystem driveSubsystem;
     CANFuelSubsystem fuelSubsystem;
     private Timer timer;
@@ -13,10 +13,11 @@ public class Auto extends Command {
 
     private final double maxTime = 10d;
     private final double driveTime = 2d;
+
     private final double spinTime = 0.86d;
     //0.86 for full spin
 
-    public Auto(CANDriveSubsystem d,CANFuelSubsystem f) {
+    public MoveAuto(CANDriveSubsystem d,CANFuelSubsystem f) {
         driveSubsystem = d;
         fuelSubsystem = f;
         timer = new Timer();
@@ -34,12 +35,11 @@ public class Auto extends Command {
     @Override
     public void execute() {
         
-        if (timer.get() < spinTime) {
+        if (timer.get() < driveTime) {
+            driveSubsystem.autoDrive(1, 1, 1);
+        } else if (timer.get() > driveTime && timer.get() < driveTime + spinTime) {
             driveSubsystem.autoDrive(-1, 1, 1);
-        } else {
-            driveSubsystem.autoDrive(0, 0, 67);
         }
-
 
             
 

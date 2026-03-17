@@ -88,7 +88,7 @@ public class CANDriveSubsystem extends SubsystemBase {
         getSparkMaxData(rightLeader),
         getSparkMaxData(rightFollower)
       };
-      dataSystem.PublishSparkMaxes(data);
+      //dataSystem.PublishSparkMaxes(data);
 
   }
 
@@ -112,7 +112,7 @@ public class CANDriveSubsystem extends SubsystemBase {
   public void autoDrive(double leftWheels, double rightWheels,double speed) {
     drive.tankDrive(leftWheels * Constants.OperatorConstants.DRIVE_SCALING * speed, rightWheels * Constants.OperatorConstants.DRIVE_SCALING * speed);
   }
-  
+
   private double[] getSparkMaxData(SparkMax sparkMax) {
     double[] data = {0,0,0,0,0};
     data[0] = sparkMax.getOutputCurrent();
