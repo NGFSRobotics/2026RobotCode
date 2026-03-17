@@ -39,7 +39,7 @@ import frc.robot.subsystems.NavXSubsystem;
 public class RobotContainer {
   // The robot's subsystems
   private final DataSystem dataSystem = new DataSystem();
-  private final NavXSubsystem navXSubsystem = new NavXSubsystem();
+  //private final NavXSubsystem navXSubsystem = new NavXSubsystem();
   private final CANDriveSubsystem driveSubsystem = new CANDriveSubsystem(dataSystem);
   private final CANFuelSubsystem fuelSubsystem = new CANFuelSubsystem();
   //private final NavXSubsystem navXSubsystem = new NavXSubsystem();

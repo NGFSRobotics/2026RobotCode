@@ -9,9 +9,12 @@ public class Auto extends Command {
     CANDriveSubsystem driveSubsystem;
     CANFuelSubsystem fuelSubsystem;
     private Timer timer;
+    // 15.5 = 2x is speed
 
     private final double maxTime = 10d;
-    private final double spinTime = 5d;
+    private final double driveTime = 2d;
+    private final double spinTime = 0.86d;
+    //0.86 for full spin
 
     public Auto(CANDriveSubsystem d,CANFuelSubsystem f) {
         driveSubsystem = d;
@@ -26,23 +29,18 @@ public class Auto extends Command {
     @Override
     public void initialize() {
         timer.restart();
-        timer.start();
     }
 
     @Override
     public void execute() {
-        System.out.print("Timer time: " + timer.get());
+        
         if (timer.get() < spinTime) {
-            fuelSubsystem.setIntakeSpeed(0.75d);
-            fuelSubsystem.setFeederSpeed(-1d);
+            driveSubsystem.autoDrive(-1, 1, 1);
         } else {
-            fuelSubsystem.setIntakeSpeed(0);
-            fuelSubsystem.setFeederSpeed(0);
+            driveSubsystem.autoDrive(0, 0, 67);
         }
 
-        if (timer.get() < maxTime) {
-            driveSubsystem.autoDrive(1, 1, 1);
-        }
+
             
 
         
