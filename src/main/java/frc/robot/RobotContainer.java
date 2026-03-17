@@ -28,7 +28,7 @@ import frc.robot.commands.ModifySpeed;
 import frc.robot.subsystems.CANDriveSubsystem;
 import frc.robot.subsystems.CANFuelSubsystem;
 import frc.robot.subsystems.NavXSubsystem;
-
+import frc.robot.AutoMode;
 /**
  * This class is where the bulk of the robot should be declared. Since
  * Command-based is a "declarative" paradigm, very little robot logic should
@@ -121,14 +121,22 @@ public class RobotContainer {
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
     Command command = null;
-    if (Constants.GeneralConstants.AUTO_MODE == "move") {
-      command = new MoveAuto(driveSubsystem, fuelSubsystem);
-    } else {
-      command = new ShootAuto(driveSubsystem, fuelSubsystem);
+    // i will project my c++ loyalty upon all who dare to let me edit their code
+    switch (Constants.GeneralConstants.AUTO_MODE) {
+      case SHOOT:
+        command = new ShootAuto(driveSubsystem, fuelSubsystem);
+        break;
+      case MOVE:
+        command = new MoveAuto(driveSubsystem, fuelSubsystem);
+        break;
+
+      default:
+        command = new ShootAuto(driveSubsystem, fuelSubsystem);
+        break;
     }
     return command;
   }
-  private boolean debounce = false;
+  private boolean debounce = false;   
   public void Rumble() {
     if (debounce == true) {return;}
     debounce = true;

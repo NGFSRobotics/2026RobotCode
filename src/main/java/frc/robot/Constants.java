@@ -15,11 +15,11 @@ package frc.robot;
  * wherever the constants are needed, to reduce verbosity.
  */
 import static frc.robot.DriveMode.*;
-
+import static frc.robot.AutoMode.*;
 public final class Constants {
 
   public static final class GeneralConstants {
-    public static final String AUTO_MODE = "shoot";
+    public static final AutoMode AUTO_MODE = SHOOT;
   }
 
   public static final class DriveConstants {
