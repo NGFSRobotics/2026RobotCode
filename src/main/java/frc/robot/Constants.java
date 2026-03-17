@@ -17,6 +17,11 @@ package frc.robot;
 import static frc.robot.DriveMode.*;
 
 public final class Constants {
+
+  public static final class GeneralConstants {
+    public static final String AUTO_MODE = "shoot";
+  }
+
   public static final class DriveConstants {
     // Motor controller IDs for drivetrain motors
     public static final int LEFT_LEADER_ID = 1;

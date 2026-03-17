@@ -17,6 +17,7 @@ import static frc.robot.Constants.OperatorConstants.*;
 
 import frc.robot.autos.MoveAuto;
 import frc.robot.autos.ParallelAuto;
+import frc.robot.autos.ShootAuto;
 import frc.robot.commands.Drive;
 import frc.robot.commands.EjectIntake;
 import frc.robot.commands.FeederIntake;
@@ -119,7 +120,13 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     // An example command will be run in autonomous
-    return new MoveAuto(driveSubsystem, fuelSubsystem);
+    Command command = null;
+    if (Constants.GeneralConstants.AUTO_MODE == "move") {
+      command = new MoveAuto(driveSubsystem, fuelSubsystem);
+    } else {
+      command = new ShootAuto(driveSubsystem, fuelSubsystem);
+    }
+    return command;
   }
   private boolean debounce = false;
   public void Rumble() {
