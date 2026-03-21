@@ -10,12 +10,10 @@ public class ShootAuto extends Command {
     CANFuelSubsystem fuelSubsystem;
     private Timer timer;
     // 15.5 = 2x is speed
+    private final double shoot =  20d;
 
-    private final double revUpTime = 0.5d;
-    private final double shoot = 2d;
-
-    private final double spinTime = 0.86d;
-    //0.86 for full spin
+    private final double backwardstime = 2.5d;
+        //0.86 for full spin
 
     public ShootAuto(CANDriveSubsystem d,CANFuelSubsystem f) {
         driveSubsystem = d;
@@ -35,15 +33,16 @@ public class ShootAuto extends Command {
     @Override
     public void execute() {
         
-        if (timer.get() < shoot) {
+        fuelSubsystem.setIntakeSpeed(1d);
+        if (timer.get() > backwardstime && timer.get() < shoot) {
             fuelSubsystem.setFeederSpeed(1d);
-        }
-        else {
+        } else {
             fuelSubsystem.setFeederSpeed(0d);
-            fuelSubsystem.setIntakeSpeed(0d);
         }
-        if (timer.get() > revUpTime && timer.get() < shoot) {
-            fuelSubsystem.setIntakeSpeed(-1d);
+        if (timer.get() < backwardstime) {
+            driveSubsystem.autoDrive(1, 1, 0.6);
+        } else {
+            driveSubsystem.autoDrive(0,0, 67);
         }
             
 
@@ -57,6 +56,7 @@ public class ShootAuto extends Command {
         timer.stop();
     }
     @Override
+    
     public boolean isFinished() {
         return (timer.get() > shoot);
     }
