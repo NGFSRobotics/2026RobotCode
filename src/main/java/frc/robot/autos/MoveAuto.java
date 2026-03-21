@@ -14,7 +14,8 @@ public class MoveAuto extends Command {
     private final double maxTime = 10d;
     private final double driveTime = 2d;
 
-    private final double spinTime = 0.86d;
+    private final double spinTime = 0.215d;
+    
     //0.86 for full spin
 
     public MoveAuto(CANDriveSubsystem d,CANFuelSubsystem f) {
@@ -34,7 +35,9 @@ public class MoveAuto extends Command {
 
     @Override
     public void execute() {
-        
+        if (timer.get() < spinTime) {
+            driveSubsystem.autoDrive(1, -1, 1);
+        }
         if (timer.get() < driveTime) {
             driveSubsystem.autoDrive(1, 1, 1);
         } else if (timer.get() > driveTime && timer.get() < driveTime + spinTime) {
