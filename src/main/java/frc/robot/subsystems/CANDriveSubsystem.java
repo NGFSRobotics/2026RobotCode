@@ -29,7 +29,7 @@ public class CANDriveSubsystem extends SubsystemBase {
   private double brakeValue = 0d;
 
   private final DifferentialDrive drive;
-  private DriveMode mode = DRIVE_MODE;
+  private DriveMode mode = DriveMode.TANK;
 
   private double speedModifier = 1d;
 
@@ -98,14 +98,20 @@ public class CANDriveSubsystem extends SubsystemBase {
 
 
   public void drive(double leftX, double leftY, double rightX, double rightY) {
-    if (mode == DriveMode.TANK) {
-      drive.tankDrive(leftY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING, rightY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING);
-      
-    }else if (mode == DriveMode.ARCADE1) {
-
-      drive.arcadeDrive(leftY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), leftX);
-    }else if (mode == DriveMode.ARCADE2) {
-      drive.arcadeDrive(leftY  * speedModifier* Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), rightX);
+    switch (mode) {
+      case TANK:
+        drive.tankDrive(leftY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING, rightY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING);
+        break;
+      case ARCADE1:
+        drive.arcadeDrive(leftY * speedModifier * Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), leftX);
+        break;
+      case ARCADE2:
+         drive.arcadeDrive(leftY  * speedModifier* Constants.OperatorConstants.DRIVE_SCALING * (1 - brakeValue), rightX);
+        break;
+      default:
+        System.out.println("ERROR IN DRIVEMODE! SETTING DEFAULT TO TANK!");
+        mode = DriveMode.TANK;
+        break;
     }
   }
 
