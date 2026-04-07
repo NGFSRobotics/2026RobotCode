@@ -22,6 +22,10 @@ public final class Constants {
     public static final AutoMode AUTO_MODE = SHOOT;
   }
 
+  public static final class AutoConstants {
+    public static final double BACKWARDS_TIME = 2.9d;
+  }
+
   public static final class DriveConstants {
     // Motor controller IDs for drivetrain motors
     public static final int LEFT_LEADER_ID = 1;
@@ -79,6 +83,8 @@ public final class Constants {
     public static final double DRIVE_SCALING = .79d;
     public static final double ROTATION_SCALING = .8;
   }
+
+  
 
  
 

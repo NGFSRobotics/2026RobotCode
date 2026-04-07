@@ -4,7 +4,7 @@ import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.subsystems.CANDriveSubsystem;
 import frc.robot.subsystems.CANFuelSubsystem;
-
+import static frc.robot.Constants.AutoConstants.*;
 public class ShootAuto extends Command {
     CANDriveSubsystem driveSubsystem;
     CANFuelSubsystem fuelSubsystem;
@@ -12,7 +12,7 @@ public class ShootAuto extends Command {
     // 15.5 = 2x is speed
     private final double shoot =  20d;
 
-    private final double backwardstime = 2.5d;
+    private final double backwardstime = BACKWARDS_TIME;
         //0.86 for full spin
 
     public ShootAuto(CANDriveSubsystem d,CANFuelSubsystem f) {
