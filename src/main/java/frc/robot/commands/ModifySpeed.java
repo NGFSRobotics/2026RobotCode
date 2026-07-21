@@ -18,6 +18,6 @@ public class ModifySpeed extends Command {
 
     @Override
     public void end(boolean interrupted) {
-      driveSubsystem.setSpeedModifier(1d);;
+      driveSubsystem.setSpeedModifier(1d);
     }
 }

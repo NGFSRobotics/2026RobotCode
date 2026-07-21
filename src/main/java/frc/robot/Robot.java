@@ -4,13 +4,14 @@
 
 package frc.robot;
 
-
 import edu.wpi.first.hal.HAL;
 import edu.wpi.first.hal.FRCNetComm.tResourceType;
+import edu.wpi.first.math.geometry.Pose3d;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.cameraserver.CameraServer;
+
 /**
  * The VM is configured to automatically run this class, and to call the
  * functions corresponding to
@@ -60,6 +61,9 @@ public class Robot extends TimedRobot {
     // robot's periodic
     // block in order for anything in the Command-based framework to work.
     CommandScheduler.getInstance().run();
+    
+    Pose3d pose = LimelightHelpers.getBotPose3d("limelight");
+    System.out.println("Robot Position: ("+pose.getX()+","+pose.getY()+","+pose.getZ()+")");
   }
 
   /** This function is called once each time the robot enters Disabled mode. */

@@ -8,7 +8,7 @@ import frc.robot.subsystems.CANFuelSubsystem;
 public class MoveAuto extends Command {
     CANDriveSubsystem driveSubsystem;
     CANFuelSubsystem fuelSubsystem;
-    private Timer timer;
+    private final Timer timer;
     // 15.5 = 2x is speed
 
     private final double maxTime = 10d;
