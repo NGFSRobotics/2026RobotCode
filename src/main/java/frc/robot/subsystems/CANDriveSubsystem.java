@@ -91,12 +91,12 @@ public class CANDriveSubsystem extends SubsystemBase {
       //dataSystem.PublishSparkMaxes(data);
 
   }
-
+  //speed modifer ()
   public void setSpeedModifier(double val) {
     speedModifier = val;
   }
 
-
+  //custom drive commands for arcade and tank
   public void drive(double leftX, double leftY, double rightX, double rightY) {
     switch (mode) {
       case TANK:

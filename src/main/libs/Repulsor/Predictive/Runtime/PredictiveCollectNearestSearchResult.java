@@ -1,0 +1,62 @@
+/*
+ * Copyright (C) 2026 Paul Hodges
+ *
+ * This file is part of Repulsor.
+ *
+ * Repulsor is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Repulsor is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Repulsor. If not, see https://www.gnu.org/licenses/.
+ */
+package org.curtinfrc.frc2026.util.Repulsor.Predictive.Runtime;
+
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import org.curtinfrc.frc2026.util.Repulsor.Predictive.Internal.CollectEval;
+
+/**
+ * Immutable data record for predictive collect nearest search result values passed through the
+ * Repulsor runtime helper layer shared by behaviours and planners. Use this type from robot code,
+ * field profiles, or tests when integrating the corresponding Repulsor subsystem. Coordinates are
+ * field-relative unless a method documents robot-relative motion.
+ *
+ * @param bestPoint component of the predictive collect nearest search result model
+ * @param bestTouch record component for the predictive collect nearest search result model
+ * @param bestHeading record component for the predictive collect nearest search result model
+ * @param bestEval record component for the predictive collect nearest search result model
+ * @param topScore record component for the predictive collect nearest search result model
+ * @param topEta record component for the predictive collect nearest search result model
+ * @param topUnits record component for the predictive collect nearest search result model
+ * @param topRegion record component for the predictive collect nearest search result model
+ * @param topDep record component for the predictive collect nearest search result model
+ * @param topAvoid record component for the predictive collect nearest search result model
+ * @param topEnemyPressure record component for the predictive collect nearest search result model
+ * @param topAllyCongestion record component for the predictive collect nearest search result model
+ * @param topActivity record component for the predictive collect nearest search result model
+ * @param topEvidence record component for the predictive collect nearest search result model
+ * @param topCount record component for the predictive collect nearest search result snapshot
+ */
+public record PredictiveCollectNearestSearchResult(
+    Translation2d bestPoint,
+    Translation2d bestTouch,
+    Rotation2d bestHeading,
+    CollectEval bestEval,
+    double[] topScore,
+    double[] topEta,
+    double[] topUnits,
+    double[] topRegion,
+    double[] topDep,
+    double[] topAvoid,
+    double[] topEnemyPressure,
+    double[] topAllyCongestion,
+    double[] topActivity,
+    double[] topEvidence,
+    int topCount) {}

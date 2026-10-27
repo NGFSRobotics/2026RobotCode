@@ -6,7 +6,7 @@ import edu.wpi.first.networktables.DoubleArrayPublisher;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StringPublisher;
-
+// for some reason this won't work...I'll fix later
 public class DataSystem {
     
     public NetworkTableInstance instance;

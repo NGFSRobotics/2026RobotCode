@@ -2,6 +2,7 @@ package frc.robot.commands;
 
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
+import frc.robot.Constants;
 import frc.robot.subsystems.CANFuelSubsystem;
 
 public class Launch extends Command {
@@ -20,7 +21,7 @@ public class Launch extends Command {
         public void run() {
             fuelSubsystem.setLauchDebounce(true);
             try {
-               Thread.sleep(1000);
+               Thread.sleep(1250);
             } catch (InterruptedException interuption) {
              
             }
@@ -33,7 +34,7 @@ public class Launch extends Command {
     }
     @Override
         public void execute() {
-        fuelSubsystem.setIntakeSpeed(operatorController.getRightTriggerAxis());
+        fuelSubsystem.setIntakeSpeed(operatorController.getRightTriggerAxis() * Constants.FuelConstants.LAUNCH_SPEED);
     }
     @Override
     public void end(boolean interrupted) {

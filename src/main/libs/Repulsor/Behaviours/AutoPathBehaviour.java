@@ -1,0 +1,789 @@
+/*
+ * Copyright (C) 2026 Paul Hodges
+ *
+ * This file is part of Repulsor.
+ *
+ * Repulsor is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * Repulsor is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Repulsor. If not, see https://www.gnu.org/licenses/.
+ */
+
+package org.curtinfrc.frc2026.util.Repulsor.Behaviours;
+
+import static edu.wpi.first.units.Units.Meters;
+
+import edu.wpi.first.math.MathUtil;
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj2.command.Command;
+import edu.wpi.first.wpilibj2.command.CommandScheduler;
+import edu.wpi.first.wpilibj2.command.Commands;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
+import org.curtinfrc.frc2026.util.Repulsor.Diagnostics.RepulsorDecisionEntry;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.RepulsorSample;
+import org.curtinfrc.frc2026.util.Repulsor.Fields.FieldMapBuilder.CategorySpec;
+import org.curtinfrc.frc2026.util.Repulsor.Metrics.HPStationMetrics;
+import org.curtinfrc.frc2026.util.Repulsor.Metrics.MetricRecorder;
+import org.curtinfrc.frc2026.util.Repulsor.Predictive.Objective.ObjectiveSelectionDecision;
+import org.curtinfrc.frc2026.util.Repulsor.ReactiveBypass.ReactiveBypass;
+import org.curtinfrc.frc2026.util.Repulsor.RepulsorDiagnostics;
+import org.curtinfrc.frc2026.util.Repulsor.Setpoints.HeightSetpoint;
+import org.curtinfrc.frc2026.util.Repulsor.Setpoints.MutablePoseSetpoint;
+import org.curtinfrc.frc2026.util.Repulsor.Setpoints.RepulsorSetpoint;
+import org.curtinfrc.frc2026.util.Repulsor.Setpoints.SetpointContext;
+import org.curtinfrc.frc2026.util.Repulsor.Setpoints.SetpointType;
+import org.curtinfrc.frc2026.util.Repulsor.Simulation.NetworkTablesValue;
+import org.curtinfrc.frc2026.util.Repulsor.Tracking.FieldTrackerCore;
+import org.curtinfrc.frc2026.util.Repulsor.Tracking.Model.Alliance;
+import org.littletonrobotics.junction.Logger;
+
+/**
+ * Provides auto path behaviour functionality for the Repulsor command-behaviour layer that converts
+ * strategy and state into WPILib commands. Use this type from robot code, field profiles, or tests
+ * when integrating the corresponding Repulsor subsystem. Coordinates are field-relative unless a
+ * method documents robot-relative motion.
+ */
+public class AutoPathBehaviour extends Behaviour {
+  private final int prio;
+  private final Supplier<Boolean> inScoring;
+  private final Supplier<Boolean> inCollecting;
+  private final Supplier<RepulsorSetpoint> nextScore;
+  private final Supplier<List<RepulsorSetpoint>> hpOptions;
+  private final Supplier<Boolean> atHPStation;
+  private final Supplier<Boolean> hasPiece;
+  private final Function<RepulsorSetpoint, String> stationKeyFn;
+  private final Supplier<Double> ourSpeedCap;
+
+  private final NetworkTablesValue<Long> pieceCount =
+      NetworkTablesValue.ofInteger(NetworkTableInstance.getDefault(), "/PieceCount", 0L);
+
+  private final NetworkTablesValue<Boolean> shooterPassthrough =
+      NetworkTablesValue.ofBoolean(NetworkTableInstance.getDefault(), "/ShooterPassthrough", false);
+
+  /**
+   * Returns the auto path behaviour value maintained by this Repulsor component.
+   *
+   * @param priority distance or field-coordinate value in meters.
+   * @param inScoring value used by this operation.
+   * @param inCollecting value used by this operation.
+   * @param nextScore value used by this operation.
+   * @param hpOptions value used by this operation.
+   * @param atHPStation value used by this operation.
+   * @param hasPiece value used by this operation.
+   * @param stationKeyFn value used by this operation.
+   * @param ourSpeedCap value used by this operation.
+   */
+  public AutoPathBehaviour(
+      int priority,
+      Supplier<Boolean> inScoring,
+      Supplier<Boolean> inCollecting,
+      Supplier<RepulsorSetpoint> nextScore,
+      Supplier<List<RepulsorSetpoint>> hpOptions,
+      Supplier<Boolean> atHPStation,
+      Supplier<Boolean> hasPiece,
+      Function<RepulsorSetpoint, String> stationKeyFn,
+      Supplier<Double> ourSpeedCap) {
+    this.prio = priority;
+    this.inScoring = inScoring;
+    this.inCollecting = inCollecting;
+    this.nextScore = nextScore;
+    this.hpOptions = hpOptions;
+    this.atHPStation = atHPStation;
+    this.hasPiece = hasPiece;
+    this.stationKeyFn = stationKeyFn;
+    this.ourSpeedCap = ourSpeedCap;
+  }
+
+  /**
+   * Returns the name value maintained by this Repulsor component.
+   *
+   * @return value produced by this operation.
+   */
+  @Override
+  public String name() {
+    return "AutoPath";
+  }
+
+  /**
+   * Returns the priority value maintained by this Repulsor component.
+   *
+   * @return value produced by this operation.
+   */
+  @Override
+  public int priority() {
+    return prio;
+  }
+
+  /**
+   * Returns the should run value maintained by this Repulsor component.
+   *
+   * @param flags value used by this operation.
+   * @param ctx runtime context carrying robot state, setpoints, and subsystem access.
+   * @return value produced by this operation.
+   */
+  @Override
+  public boolean shouldRun(EnumSet<BehaviourFlag> flags, BehaviourContext ctx) {
+    return flags.contains(BehaviourFlag.AUTOPATH_MODE);
+  }
+
+  private static double shortestAngleRad(double from, double to) {
+    return MathUtil.angleModulus(to - from);
+  }
+
+  private static boolean nearPose(Pose2d a, Pose2d b, double posTol, double degTol) {
+    if (a.getTranslation().getDistance(b.getTranslation()) > posTol) return false;
+    double e =
+        Math.abs(shortestAngleRad(a.getRotation().getRadians(), b.getRotation().getRadians()));
+    return e <= Math.toRadians(degTol);
+  }
+
+  private static SetpointContext makeCtx(BehaviourContext ctx, Pose2d robotPose) {
+    double release;
+    try {
+      var ht = ctx.repulsor.getTargetHeight();
+      var d = ht != null ? ht.getHeight() : null;
+      release = d != null ? Math.max(0.0, d.in(Meters)) : 0.0;
+    } catch (Exception ignored) {
+      release = 0.0;
+    }
+    return new SetpointContext(
+        Optional.of(robotPose),
+        Math.max(0.0, ctx.robot_x) * 2.0,
+        Math.max(0.0, ctx.robot_y) * 2.0,
+        release,
+        ctx.vision.getObstacles());
+  }
+
+  /**
+   * Returns the current driver station alliance or blue value maintained by this Repulsor
+   * component.
+   *
+   * @return driver station.alliance result for current driver station alliance or blue.
+   */
+  static DriverStation.Alliance currentDriverStationAllianceOrBlue() {
+    return DriverStation.getAlliance().orElse(DriverStation.Alliance.Blue);
+  }
+
+  /**
+   * Returns the to repulsor alliance value maintained by this Repulsor component.
+   *
+   * @param alliance value used by this operation.
+   * @return value produced by this operation.
+   */
+  static Alliance toRepulsorAlliance(DriverStation.Alliance alliance) {
+    return alliance == DriverStation.Alliance.Red ? Alliance.kRed : Alliance.kBlue;
+  }
+
+  /**
+   * Returns the preferred alliance from driver station value maintained by this Repulsor component.
+   *
+   * @return value produced by this operation.
+   */
+  static Alliance preferredAllianceFromDriverStation() {
+    return toRepulsorAlliance(currentDriverStationAllianceOrBlue());
+  }
+
+  /**
+   * Returns the resolve planner goal pose value maintained by this Repulsor component.
+   *
+   * @param setpoint value used by this operation.
+   * @param setpointContext runtime context carrying robot state, setpoints, and subsystem access.
+   * @param driverAlliance value used by this operation.
+   * @return value produced by this operation.
+   */
+  static Pose2d resolvePlannerGoalPose(
+      RepulsorSetpoint setpoint,
+      SetpointContext setpointContext,
+      DriverStation.Alliance driverAlliance) {
+    if (setpoint == null) {
+      return Pose2d.kZero;
+    }
+    // Planner goals must reflect the active alliance; setpoints own the flip semantics.
+    return setpoint.getForAlliance(driverAlliance, setpointContext);
+  }
+
+  /**
+   * Returns the resolve planner goal pose value maintained by this Repulsor component.
+   *
+   * @param setpoint value used by this operation.
+   * @param setpointContext runtime context carrying robot state, setpoints, and subsystem access.
+   * @return value produced by this operation.
+   */
+  static Pose2d resolvePlannerGoalPose(RepulsorSetpoint setpoint, SetpointContext setpointContext) {
+    return resolvePlannerGoalPose(setpoint, setpointContext, currentDriverStationAllianceOrBlue());
+  }
+
+  /**
+   * Computes the choose planner setpoint value for the current Repulsor planning state. Call this
+   * from periodic planning or tests when a fresh decision is required; inputs should already be
+   * expressed in the coordinate frame expected by the parameter names.
+   *
+   * @param cat value used by this operation.
+   * @param desired value used by this operation.
+   * @param plannerOverride value used by this operation.
+   * @return repulsor setpoint result for choose planner setpoint.
+   */
+  static RepulsorSetpoint choosePlannerSetpoint(
+      CategorySpec cat, RepulsorSetpoint desired, RepulsorSetpoint plannerOverride) {
+    if (cat == CategorySpec.kCollect) {
+      return desired != null ? desired : plannerOverride;
+    }
+    return plannerOverride != null ? plannerOverride : desired;
+  }
+
+  private Command buildShootReadyCommand(BehaviourContext ctx) {
+    return Commands.runOnce(
+            () -> {
+              FieldTrackerCore.getInstance().resetAll();
+              shooterPassthrough.set(true);
+            })
+        .andThen(Commands.waitUntil(() -> pieceCount.get() == 0))
+        .andThen(
+            Commands.runOnce(
+                () -> {
+                  shooterPassthrough.set(false);
+                }));
+  }
+
+  private boolean isReadyToShoot(
+      Pose2d robotPose,
+      Pose2d goalPose,
+      boolean piece,
+      CategorySpec cat,
+      AutoPathRuntimeConfig config) {
+    if (!piece) return false;
+    if (cat != CategorySpec.kScore) return false;
+    if (goalPose == null) return false;
+    AutoPathRuntimeConfig safeConfig = config == null ? AutoPathRuntimeConfig.defaults() : config;
+    boolean near =
+        nearPose(
+            robotPose,
+            goalPose,
+            safeConfig.shootReadyPositionToleranceMeters(),
+            safeConfig.shootReadyRotationToleranceDegrees());
+    if (!near) return false;
+    return true;
+  }
+
+  private Command buildResetCommand() {
+    return Commands.runOnce(
+        () -> {
+          RepulsorDiagnostics.warnThrottled(
+              "AutoPath/resetFieldTracker", "AutoPathBehaviour resetting FieldTracker", 2.0);
+          FieldTrackerCore.getInstance().resetAll();
+        });
+  }
+
+  private Command resetCommand = null;
+
+  /**
+   * Builds the WPILib command sequence for the current behaviour context.
+   *
+   * @param ctx runtime context carrying robot state, setpoints, and subsystem access.
+   * @return value produced by this operation.
+   */
+  @Override
+  public Command build(BehaviourContext ctx) {
+    Supplier<AutoPathRuntimeConfig> autoPathConfig = ctx.repulsor::autoPathRuntimeConfig;
+
+    AtomicReference<RepulsorSetpoint> lastActive = new AtomicReference<>(null);
+    AtomicReference<CategorySpec> lastCat = new AtomicReference<>(null);
+
+    AtomicReference<String> timingStation = new AtomicReference<>(null);
+    AtomicLong timingStartNs = new AtomicLong(0);
+
+    AtomicReference<RepulsorSetpoint> lastEpisodeGoal = new AtomicReference<>(null);
+    AtomicLong lastEpisodeFinalizeNs = new AtomicLong(0L);
+
+    AtomicBoolean shootGoalLocked = new AtomicBoolean(false);
+    AtomicReference<Pose2d> lockedShootPose = new AtomicReference<>(null);
+
+    AtomicLong episodeStartNs = new AtomicLong(0L);
+    AtomicReference<Double> episodeBestDist = new AtomicReference<>(null);
+    AtomicLong lastProgressNs = new AtomicLong(0L);
+    AtomicBoolean episodeEverNearGoal = new AtomicBoolean(false);
+
+    AtomicLong pinnedEnterNs = new AtomicLong(0L);
+    AtomicReference<Double> pinnedStartBestDist = new AtomicReference<>(null);
+    AtomicReference<Double> pinnedBestDist = new AtomicReference<>(null);
+    AtomicBoolean pinnedFailedThisLatch = new AtomicBoolean(false);
+
+    ReactiveBypass byp = ctx.planner.bypass;
+
+    AtomicReference<Pose2d> collectBluePoseRef = new AtomicReference<>(Pose2d.kZero);
+    RepulsorSetpoint collectRoute =
+        new RepulsorSetpoint(
+            new MutablePoseSetpoint("COLLECT_ROUTE", SetpointType.kOther, collectBluePoseRef),
+            HeightSetpoint.NONE);
+
+    final RepulsorSetpoint scoreFallback =
+        ctx.repulsor.getFieldDefinition().defaultScoreSetpoint().orElse(null);
+
+    Command shootReadyCmd = buildShootReadyCommand(ctx);
+    AtomicBoolean shootLatched = new AtomicBoolean(false);
+
+    Consumer<Boolean> finalizeEpisode =
+        forceSuccess -> {
+          if (lastEpisodeGoal.get() == null) {
+            return;
+          }
+          long now = System.nanoTime();
+          long last = lastEpisodeFinalizeNs.get();
+          if (last != 0L && now - last < autoPathConfig.get().episodeCooldownNanos()) {
+            return;
+          }
+          boolean success = forceSuccess;
+          if (episodeEverNearGoal.get()) {
+            success = true;
+          }
+          byp.finalizeEpisode(success);
+          lastEpisodeFinalizeNs.set(now);
+          episodeStartNs.set(0L);
+          episodeBestDist.set(null);
+          lastProgressNs.set(0L);
+          pinnedEnterNs.set(0L);
+          pinnedStartBestDist.set(null);
+          pinnedBestDist.set(null);
+          pinnedFailedThisLatch.set(false);
+          episodeEverNearGoal.set(false);
+          shootGoalLocked.set(false);
+          lockedShootPose.set(null);
+        };
+
+    return Commands.run(
+            () -> {
+              Pose2d robotPose = ctx.robotPose.get();
+              DriverStation.Alliance driverAlliance = currentDriverStationAllianceOrBlue();
+              boolean piece = hasPiece.get();
+              double cap = ourSpeedCap != null ? Math.max(0.25, ourSpeedCap.get()) : 3.5;
+              CategorySpec cat = piece ? CategorySpec.kScore : CategorySpec.kCollect;
+
+              CategorySpec prevCat = lastCat.get();
+              if (prevCat != null && prevCat != cat) {
+                if (lastEpisodeGoal.get() != null) {
+                  finalizeEpisode.accept(false);
+                }
+                ctx.planner.clearCommitted();
+                lastActive.set(null);
+                timingStartNs.set(0);
+                timingStation.set(null);
+                if (shootReadyCmd != null && shootReadyCmd.isScheduled()) {
+                  shootReadyCmd.cancel();
+                }
+                shootLatched.set(false);
+                shootGoalLocked.set(false);
+                lockedShootPose.set(null);
+                shooterPassthrough.set(false);
+              }
+              lastCat.set(cat);
+
+              RepulsorSetpoint plannerOverride = ctx.planner.pollChosenSetpoint().orElse(null);
+
+              RepulsorSetpoint desired;
+              if (cat == CategorySpec.kScore) {
+                if (resetCommand != null && resetCommand.isScheduled()) {
+                  resetCommand.cancel();
+                }
+
+                RepulsorSetpoint fromNT = nextScore != null ? nextScore.get() : null;
+                if (fromNT != null) {
+                  desired = fromNT;
+                } else {
+                  RepulsorSetpoint pred = pickPredicted(ctx);
+                  FieldTrackerCore.getInstance().resetAll();
+                  desired = pred != null ? pred : scoreFallback;
+                }
+
+              } else {
+                if (resetCommand == null || (resetCommand != null && !resetCommand.isScheduled())) {
+                  resetCommand = Commands.waitSeconds(5).andThen(buildResetCommand());
+
+                  CommandScheduler.getInstance().schedule(resetCommand);
+                }
+
+                RepulsorSetpoint hp =
+                    chooseCollect(
+                        ctx,
+                        robotPose,
+                        cap,
+                        autoPathConfig.get().collectGoalUnits(),
+                        collectBluePoseRef,
+                        collectRoute,
+                        autoPathConfig.get());
+
+                desired = (hp != null) ? hp : collectRoute;
+              }
+
+              RepulsorSetpoint sp = choosePlannerSetpoint(cat, desired, plannerOverride);
+              lastActive.set(sp);
+
+              if (sp == null) {
+                if (shootReadyCmd != null && shootReadyCmd.isScheduled()) {
+                  shootReadyCmd.cancel();
+                }
+                shootLatched.set(false);
+                shootGoalLocked.set(false);
+                lockedShootPose.set(null);
+                shooterPassthrough.set(false);
+                ctx.drive.runVelocity(new ChassisSpeeds());
+                return;
+              }
+
+              RepulsorSetpoint prevGoal = lastEpisodeGoal.get();
+              if (prevGoal == null) {
+                lastEpisodeGoal.set(sp);
+              } else if (prevGoal != sp) {
+                finalizeEpisode.accept(false);
+                lastEpisodeGoal.set(sp);
+                if (shootReadyCmd != null && shootReadyCmd.isScheduled()) {
+                  shootReadyCmd.cancel();
+                }
+                shootLatched.set(false);
+                shootGoalLocked.set(false);
+                lockedShootPose.set(null);
+                shooterPassthrough.set(false);
+              }
+
+              Pose2d goalPose = resolvePlannerGoalPose(sp, makeCtx(ctx, robotPose), driverAlliance);
+
+              if (cat == CategorySpec.kScore && piece) {
+                double d = robotPose.getTranslation().getDistance(goalPose.getTranslation());
+
+                if (!shootGoalLocked.get()) {
+                  if (d <= autoPathConfig.get().shootLockEnterMeters()) {
+                    Pose2d lock = goalPose;
+                    lockedShootPose.set(lock);
+                    shootGoalLocked.set(true);
+                  }
+                } else {
+                  Pose2d lock = lockedShootPose.get();
+                  if (lock == null) {
+                    shootGoalLocked.set(false);
+                  } else {
+                    double dLock = robotPose.getTranslation().getDistance(lock.getTranslation());
+                    if (dLock >= autoPathConfig.get().shootLockExitMeters()) {
+                      shootGoalLocked.set(false);
+                      lockedShootPose.set(null);
+                    } else {
+                      double rotErr =
+                          Math.abs(
+                              shortestAngleRad(
+                                  robotPose.getRotation().getRadians(),
+                                  lock.getRotation().getRadians()));
+                      if (rotErr
+                          < Math.toRadians(autoPathConfig.get().shootLockMinRotationDegrees())) {
+                        lockedShootPose.set(new Pose2d(lock.getTranslation(), lock.getRotation()));
+                      }
+                      goalPose = lock;
+                    }
+                  }
+                }
+              } else {
+                shootGoalLocked.set(false);
+                lockedShootPose.set(null);
+              }
+
+              ctx.repulsor.setCurrentGoal(sp);
+              ctx.planner.setRequestedGoal(goalPose);
+
+              double distToGoal = robotPose.getTranslation().getDistance(goalPose.getTranslation());
+              long nowNs = System.nanoTime();
+
+              if (episodeStartNs.get() == 0L) {
+                episodeStartNs.set(nowNs);
+                episodeBestDist.set(distToGoal);
+                lastProgressNs.set(nowNs);
+              } else {
+                Double best = episodeBestDist.get();
+                if (best == null
+                    || distToGoal < best - autoPathConfig.get().progressEpsilonMeters()) {
+                  episodeBestDist.set(distToGoal);
+                  lastProgressNs.set(nowNs);
+                }
+              }
+
+              if (distToGoal <= autoPathConfig.get().successNearDistanceMeters()) {
+                episodeEverNearGoal.set(true);
+              }
+
+              boolean readyToShoot =
+                  isReadyToShoot(robotPose, goalPose, piece, cat, autoPathConfig.get());
+              if (readyToShoot) {
+                if (!shootLatched.get()) {
+                  shootLatched.set(true);
+                  if (shootReadyCmd != null && !shootReadyCmd.isScheduled()) {
+                    CommandScheduler.getInstance().schedule(shootReadyCmd);
+                  }
+                }
+              } else {
+                if (shootLatched.get()) {
+                  shootLatched.set(false);
+                  if (shootReadyCmd != null && shootReadyCmd.isScheduled()) {
+                    shootReadyCmd.cancel();
+                  }
+                  shooterPassthrough.set(false);
+                }
+              }
+
+              if (cat == CategorySpec.kCollect) {
+                if (atHPStation.get() && timingStartNs.get() == 0) {
+                  timingStartNs.set(System.nanoTime());
+                  timingStation.set(stationKeyFn.apply(sp));
+                }
+                if (hasPiece.get() && timingStartNs.get() != 0) {
+                  double secs = (System.nanoTime() - timingStartNs.get()) / 1e9;
+                  String key = timingStation.get();
+                  if (key != null) {
+                    MetricRecorder<Double> r = HPStationMetrics.recorder(key);
+                    r.record(secs);
+                  }
+                  timingStartNs.set(0);
+                  timingStation.set(null);
+                }
+              } else {
+                timingStartNs.set(0);
+                timingStation.set(null);
+              }
+
+              RepulsorSample sample =
+                  ctx.planner.calculate(
+                      robotPose,
+                      ctx.vision.getObstacles(),
+                      ctx.robot_x,
+                      ctx.robot_y,
+                      cat,
+                      false,
+                      0.0);
+
+              boolean pinned = byp.isPinnedMode();
+
+              if (pinned) {
+                if (pinnedEnterNs.get() == 0L) {
+                  pinnedEnterNs.set(nowNs);
+                  pinnedStartBestDist.set(episodeBestDist.get());
+                  pinnedBestDist.set(episodeBestDist.get());
+                  pinnedFailedThisLatch.set(false);
+                } else {
+                  Double currentBest = episodeBestDist.get();
+                  if (currentBest != null) {
+                    Double pinnedBest = pinnedBestDist.get();
+                    if (pinnedBest == null || currentBest < pinnedBest) {
+                      pinnedBestDist.set(currentBest);
+                    }
+                  }
+                  long pinnedDur = nowNs - pinnedEnterNs.get();
+                  Double startBest = pinnedStartBestDist.get();
+                  Double bestSincePinned = pinnedBestDist.get();
+                  if (!pinnedFailedThisLatch.get()
+                      && startBest != null
+                      && bestSincePinned != null) {
+                    double improvement = startBest - bestSincePinned;
+                    if (pinnedDur >= autoPathConfig.get().pinnedFailNanos()
+                        && improvement < autoPathConfig.get().pinnedProgressMinMeters()) {
+                      episodeEverNearGoal.set(false);
+                      finalizeEpisode.accept(false);
+                      pinnedFailedThisLatch.set(true);
+                    }
+                  }
+                }
+              } else {
+                pinnedEnterNs.set(0L);
+                pinnedStartBestDist.set(null);
+                pinnedBestDist.set(null);
+                pinnedFailedThisLatch.set(false);
+              }
+
+              if (lastEpisodeGoal.get() != null && sp == lastEpisodeGoal.get()) {
+                long lastProg = lastProgressNs.get();
+                if (lastProg != 0L) {
+                  long sinceProgressNs = nowNs - lastProg;
+                  if (sinceProgressNs >= autoPathConfig.get().stuckFailNanos()
+                      && distToGoal > autoPathConfig.get().stuckDistanceMinMeters()) {
+                    episodeEverNearGoal.set(false);
+                    finalizeEpisode.accept(false);
+                  }
+                }
+              }
+
+              ctx.drive.runVelocity(
+                  sample.asChassisSpeeds(
+                      ctx.repulsor.getDrive().getOmegaPID(), robotPose.getRotation()));
+            },
+            ctx.drive)
+        .finallyDo(
+            interrupted -> {
+              if (shootReadyCmd != null && shootReadyCmd.isScheduled()) {
+                shootReadyCmd.cancel();
+              }
+              shooterPassthrough.set(false);
+              if (lastEpisodeGoal.get() != null) {
+                finalizeEpisode.accept(!interrupted);
+              }
+              ctx.drive.runVelocity(new ChassisSpeeds());
+            });
+  }
+
+  /**
+   * Computes the pick predicted value for the current Repulsor planning state. Call this from
+   * periodic planning or tests when a fresh decision is required; inputs should already be
+   * expressed in the coordinate frame expected by the parameter names.
+   *
+   * @param ctx runtime context carrying robot state, setpoints, and subsystem access.
+   * @return repulsor setpoint result for pick predicted.
+   */
+  RepulsorSetpoint pickPredicted(BehaviourContext ctx) {
+    return pickPredicted(ctx, preferredAllianceFromDriverStation());
+  }
+
+  /**
+   * Computes the pick predicted value for the current Repulsor planning state. Call this from
+   * periodic planning or tests when a fresh decision is required; inputs should already be
+   * expressed in the coordinate frame expected by the parameter names.
+   *
+   * @param ctx runtime context carrying robot state, setpoints, and subsystem access.
+   * @param alliance value used by this operation.
+   * @return repulsor setpoint result for pick predicted.
+   */
+  RepulsorSetpoint pickPredicted(BehaviourContext ctx, Alliance alliance) {
+    FieldTrackerCore ft = FieldTrackerCore.getInstance();
+    double cap = ourSpeedCap != null ? Math.max(0.1, ourSpeedCap.get()) : 3.5;
+    RepulsorSetpoint current = currentScoreObjective(ctx);
+    ObjectiveSelectionDecision decision =
+        ft.selectPredictedObjective(
+            alliance,
+            ctx.robotPose.get().getTranslation(),
+            cap,
+            CategorySpec.kScore,
+            current,
+            null);
+    logObjectiveSelection(decision);
+    return decision.hasSelection() ? decision.selected().setpoint : null;
+  }
+
+  private void logObjectiveSelection(ObjectiveSelectionDecision decision) {
+    ObjectiveSelectionDecision safeDecision =
+        decision == null ? ObjectiveSelectionDecision.none("null_decision") : decision;
+    Logger.recordOutput("Repulsor/AutoPath/ObjectiveSelection/Mode", safeDecision.mode().name());
+    Logger.recordOutput("Repulsor/AutoPath/ObjectiveSelection/Reason", safeDecision.reason());
+    Logger.recordOutput("Repulsor/AutoPath/ObjectiveSelection/Switched", safeDecision.switched());
+    Logger.recordOutput(
+        "Repulsor/AutoPath/ObjectiveSelection/ScoreDelta", safeDecision.scoreDelta());
+    logCandidate("Repulsor/AutoPath/ObjectiveSelection/Selected", safeDecision.selected());
+    logCandidate("Repulsor/AutoPath/ObjectiveSelection/Current", safeDecision.currentCandidate());
+    logCandidate("Repulsor/AutoPath/ObjectiveSelection/Best", safeDecision.bestCandidate());
+    RepulsorDecisionEntry entry = safeDecision.asDecisionEntry("AutoPath");
+    Logger.recordOutput(
+        "Repulsor/DecisionTrace/AutoPathObjective",
+        entry.layer() + ":" + entry.decision() + "(" + entry.reason() + ")");
+  }
+
+  private void logCandidate(
+      String prefix, org.curtinfrc.frc2026.util.Repulsor.Predictive.Model.Candidate candidate) {
+    Logger.recordOutput(prefix + "/Present", candidate != null);
+    if (candidate == null) {
+      Logger.recordOutput(prefix + "/Score", 0.0);
+      Logger.recordOutput(prefix + "/OurEtaS", 0.0);
+      return;
+    }
+    Logger.recordOutput(prefix + "/Score", candidate.score);
+    Logger.recordOutput(prefix + "/OurEtaS", candidate.ourEtaS);
+    Logger.recordOutput(prefix + "/EnemyEtaS", candidate.enemyEtaS);
+    Logger.recordOutput(prefix + "/AllyEtaS", candidate.allyEtaS);
+    Logger.recordOutput(prefix + "/Pressure", candidate.pressure);
+    Logger.recordOutput(prefix + "/Congestion", candidate.congestion);
+    if (candidate.targetXY != null) {
+      Logger.recordOutput(prefix + "/Target", candidate.targetXY);
+    }
+    if (candidate.setpoint != null) {
+      Logger.recordOutput(prefix + "/Level", candidate.setpoint.levelId());
+      Logger.recordOutput(prefix + "/Height", candidate.setpoint.height().name());
+      Logger.recordOutput(prefix + "/Point", candidate.setpoint.point().name());
+    }
+  }
+
+  private RepulsorSetpoint currentScoreObjective(BehaviourContext ctx) {
+    if (ctx != null && ctx.repulsor != null) {
+      RepulsorSetpoint current = ctx.repulsor.getCurrentGoal();
+      if (current != null && current.height() != HeightSetpoint.NONE) return current;
+    }
+    return null;
+  }
+
+  private RepulsorSetpoint chooseCollect(
+      BehaviourContext ctx,
+      Pose2d robotPose,
+      double cap,
+      int goalUnits,
+      AtomicReference<Pose2d> collectBluePoseRef,
+      RepulsorSetpoint collectRoute,
+      AutoPathRuntimeConfig autoPathConfig) {
+    FieldTrackerCore tracker = FieldTrackerCore.getInstance();
+    Pose2d nextBlue = tracker.nextCollectionGoalBlue(robotPose, cap, goalUnits);
+
+    if (nextBlue == null) {
+      nextBlue =
+          new Pose2d(
+              ctx.repulsor.getFieldDefinition().fieldLengthMeters() * 0.5,
+              ctx.repulsor.getFieldDefinition().fieldWidthMeters() * 0.5,
+              robotPose.getRotation());
+    }
+
+    nextBlue = recoverFromCollectHold(ctx, tracker, robotPose, nextBlue, autoPathConfig);
+    nextBlue = new Pose2d(nextBlue.getTranslation(), nextBlue.getRotation());
+
+    Logger.recordOutput("FinalCollect", nextBlue);
+    collectBluePoseRef.set(nextBlue);
+
+    return collectRoute;
+  }
+
+  private Pose2d recoverFromCollectHold(
+      BehaviourContext ctx,
+      FieldTrackerCore tracker,
+      Pose2d robotPose,
+      Pose2d currentCandidate,
+      AutoPathRuntimeConfig config) {
+    if (tracker == null || robotPose == null || currentCandidate == null) return currentCandidate;
+
+    AutoPathRuntimeConfig safeConfig = config == null ? AutoPathRuntimeConfig.defaults() : config;
+    final double HOLD_GOAL_NEAR_M = safeConfig.collectHoldGoalNearMeters();
+    final double FAR_FUEL_MIN_DIST_M = safeConfig.collectFarResourceMinDistanceMeters();
+
+    double candidateDist =
+        robotPose.getTranslation().getDistance(currentCandidate.getTranslation());
+    if (candidateDist > HOLD_GOAL_NEAR_M) return currentCandidate;
+
+    double fieldDiag =
+        Math.hypot(
+            ctx.repulsor.getFieldDefinition().fieldLengthMeters(),
+            ctx.repulsor.getFieldDefinition().fieldWidthMeters());
+    Translation2d farFuel =
+        tracker.getPredictor().nearestCollectResource(robotPose.getTranslation(), fieldDiag);
+    if (farFuel == null) return currentCandidate;
+
+    double fuelDist = robotPose.getTranslation().getDistance(farFuel);
+    if (fuelDist < FAR_FUEL_MIN_DIST_M) return currentCandidate;
+
+    return new Pose2d(farFuel, farFuel.minus(robotPose.getTranslation()).getAngle());
+  }
+}

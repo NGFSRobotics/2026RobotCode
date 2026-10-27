@@ -1,6 +1,7 @@
 package frc.robot.commands;
 
 import edu.wpi.first.wpilibj2.command.Command;
+import frc.robot.Constants;
 import frc.robot.subsystems.CANFuelSubsystem;
 
 public class Intake extends Command {
@@ -11,7 +12,7 @@ public class Intake extends Command {
 
     @Override
     public void execute() {
-        fuelSubsystem.setIntakeSpeed(.75d);
+        fuelSubsystem.setIntakeSpeed(Constants.FuelConstants.INTAKE_SPEED);
     }
 
 }

@@ -64,8 +64,8 @@ public final class Constants {
     // positive = forwards
     // ALWAYS PUT A LOWERCASE d AT THE END OF THESE NUMBERS
     // DO NOT MODIFY ANY OTHER VARIABLE BUT THESE 
-    public static final double LAUNCH_SPEED = 1d;
-    public static final double INTAKE_SPEED = 0.73d;
+    public static final double LAUNCH_SPEED = 0.9d;
+    public static final double INTAKE_SPEED = 0.56d;
     public static final double FEEDER_FORWARD_SPEED = -1d;
     public static final double FEEDER_REVERSE_SPEED = 1d;
     // DO NOT MODIFY ANY OTHER VARIABLE BUT THESE ^^^^^^
@@ -83,7 +83,6 @@ public final class Constants {
     public static final double DRIVE_SCALING = .79d;
     public static final double ROTATION_SCALING = .8;
   }
-
   
 
  

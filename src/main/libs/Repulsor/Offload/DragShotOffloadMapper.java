@@ -1,0 +1,547 @@
+package org.curtinfrc.frc2026.util.Repulsor.Offload;
+
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.geometry.Translation2d;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.FieldPlanner;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacle;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacles.HorizontalObstacle;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacles.PointObstacle;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacles.PredictedDynamicObstacleEnvelope;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacles.SnowmanObstacle;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacles.SquareObstacle;
+import org.curtinfrc.frc2026.util.Repulsor.FieldPlanner.Obstacles.VerticalObstacle;
+import org.curtinfrc.frc2026.util.Repulsor.Force;
+import org.curtinfrc.frc2026.util.Repulsor.Shooting.Constraints;
+import org.curtinfrc.frc2026.util.Repulsor.Shooting.GamePiecePhysics;
+import org.curtinfrc.frc2026.util.Repulsor.Shooting.ShotSolution;
+import org.curtinfrc.frc2026.util.Repulsor.VisionPlanner;
+
+/**
+ * Provides drag shot offload mapper functionality for the Repulsor offload serialization and
+ * native/JNI entrypoint boundary. Use this type from robot code, field profiles, or tests when
+ * integrating the corresponding Repulsor subsystem. Coordinates are field-relative unless a method
+ * documents robot-relative motion.
+ */
+public final class DragShotOffloadMapper {
+  private DragShotOffloadMapper() {}
+
+  /**
+   * Returns the to translation dto value maintained by this Repulsor component.
+   *
+   * @param translation value used by this operation.
+   * @return translation2d dto result for to translation dto.
+   */
+  public static Translation2dDTO toTranslationDto(Translation2d translation) {
+    if (translation == null) {
+      return new Translation2dDTO();
+    }
+    return new Translation2dDTO(translation.getX(), translation.getY());
+  }
+
+  /**
+   * Returns the from translation dto value maintained by this Repulsor component.
+   *
+   * @param dto value used by this operation.
+   * @return value produced by this operation.
+   */
+  public static Translation2d fromTranslationDto(Translation2dDTO dto) {
+    if (dto == null) {
+      return new Translation2d();
+    }
+    return new Translation2d(dto.getX(), dto.getY());
+  }
+
+  /**
+   * Returns the to pose dto value maintained by this Repulsor component.
+   *
+   * @param pose WPILib Pose2d in field-relative coordinates.
+   * @return pose2d dto result for to pose dto.
+   */
+  public static Pose2dDTO toPoseDto(Pose2d pose) {
+    if (pose == null) {
+      return new Pose2dDTO();
+    }
+    return new Pose2dDTO(
+        pose.getTranslation().getX(),
+        pose.getTranslation().getY(),
+        pose.getRotation().getRadians());
+  }
+
+  /**
+   * Returns the from pose dto value maintained by this Repulsor component.
+   *
+   * @param dto value used by this operation.
+   * @return value produced by this operation.
+   */
+  public static Pose2d fromPoseDto(Pose2dDTO dto) {
+    if (dto == null) {
+      return new Pose2d();
+    }
+    return new Pose2d(dto.getX(), dto.getY(), Rotation2d.fromRadians(dto.getThetaRadians()));
+  }
+
+  /**
+   * Returns the to game piece dto value maintained by this Repulsor component.
+   *
+   * @param gamePiece value used by this operation.
+   * @return game piece physics dto result for to game piece dto.
+   */
+  public static GamePiecePhysicsDTO toGamePieceDto(GamePiecePhysics gamePiece) {
+    if (gamePiece == null) {
+      return new GamePiecePhysicsDTO();
+    }
+    return new GamePiecePhysicsDTO(
+        gamePiece.massKg(),
+        gamePiece.crossSectionAreaM2(),
+        gamePiece.dragCoefficient(),
+        gamePiece.airDensityKgPerM3());
+  }
+
+  /**
+   * Returns the from game piece dto value maintained by this Repulsor component.
+   *
+   * @param dto value used by this operation.
+   * @return game piece physics result for from game piece dto.
+   */
+  public static GamePiecePhysics fromGamePieceDto(GamePiecePhysicsDTO dto) {
+    if (dto == null) {
+      return new SnapshotGamePiecePhysics(0, 0, 0, 1.225);
+    }
+    return new SnapshotGamePiecePhysics(
+        dto.getMassKg(),
+        dto.getCrossSectionAreaM2(),
+        dto.getDragCoefficient(),
+        dto.getAirDensityKgPerM3());
+  }
+
+  /**
+   * Returns the to constraints dto value maintained by this Repulsor component.
+   *
+   * @param constraints value used by this operation.
+   * @return constraints dto result for to constraints dto.
+   */
+  public static ConstraintsDTO toConstraintsDto(Constraints constraints) {
+    if (constraints == null) {
+      return new ConstraintsDTO();
+    }
+    return new ConstraintsDTO(
+        constraints.minLaunchSpeedMetersPerSecond(),
+        constraints.maxLaunchSpeedMetersPerSecond(),
+        constraints.minLaunchAngleDeg(),
+        constraints.maxLaunchAngleDeg(),
+        constraints.shotStyle().name());
+  }
+
+  /**
+   * Returns the from constraints dto value maintained by this Repulsor component.
+   *
+   * @param dto value used by this operation.
+   * @return value produced by this operation.
+   */
+  public static Constraints fromConstraintsDto(ConstraintsDTO dto) {
+    if (dto == null) {
+      return new Constraints(0, 0, 0, 0);
+    }
+
+    Constraints.ShotStyle style;
+    try {
+      style = Constraints.ShotStyle.valueOf(dto.getShotStyle());
+    } catch (Exception ignored) {
+      style = Constraints.ShotStyle.ANY;
+    }
+
+    return new Constraints(
+        dto.getMinLaunchSpeedMetersPerSecond(),
+        dto.getMaxLaunchSpeedMetersPerSecond(),
+        dto.getMinLaunchAngleDeg(),
+        dto.getMaxLaunchAngleDeg(),
+        style);
+  }
+
+  /**
+   * Returns the to shot solution dto value maintained by this Repulsor component.
+   *
+   * @param solution value used by this operation.
+   * @return shot solution dto result for to shot solution dto.
+   */
+  public static ShotSolutionDTO toShotSolutionDto(ShotSolution solution) {
+    if (solution == null) {
+      return null;
+    }
+
+    ShotSolutionDTO dto = new ShotSolutionDTO();
+    dto.setShooterPosition(toTranslationDto(solution.shooterPosition()));
+    dto.setShooterYawRadians(solution.shooterYaw().getRadians());
+    dto.setLaunchSpeedMetersPerSecond(solution.launchSpeedMetersPerSecond());
+    dto.setLaunchAngleRadians(solution.launchAngle().getRadians());
+    dto.setTimeToPlaneSeconds(solution.timeToPlaneSeconds());
+    dto.setImpactFieldPosition(toTranslationDto(solution.impactFieldPosition()));
+    dto.setVerticalErrorMeters(solution.verticalErrorMeters());
+    return dto;
+  }
+
+  /**
+   * Returns the from shot solution dto value maintained by this Repulsor component.
+   *
+   * @param dto value used by this operation.
+   * @return shot solution result for from shot solution dto.
+   */
+  public static ShotSolution fromShotSolutionDto(ShotSolutionDTO dto) {
+    if (dto == null) {
+      return null;
+    }
+
+    return new ShotSolution(
+        fromTranslationDto(dto.getShooterPosition()),
+        Rotation2d.fromRadians(dto.getShooterYawRadians()),
+        dto.getLaunchSpeedMetersPerSecond(),
+        Rotation2d.fromRadians(dto.getLaunchAngleRadians()),
+        dto.getTimeToPlaneSeconds(),
+        fromTranslationDto(dto.getImpactFieldPosition()),
+        dto.getVerticalErrorMeters());
+  }
+
+  /**
+   * Returns the to optional shot solution dto value maintained by this Repulsor component.
+   *
+   * @param solutionOptional value used by this operation.
+   * @return drag shot auto response dto result for to optional shot solution dto.
+   */
+  public static DragShotAutoResponseDTO toOptionalShotSolutionDto(
+      Optional<ShotSolution> solutionOptional) {
+    if (solutionOptional == null || solutionOptional.isEmpty()) {
+      return DragShotAutoResponseDTO.empty();
+    }
+
+    DragShotAutoResponseDTO response = new DragShotAutoResponseDTO();
+    response.setPresent(true);
+    response.setSolution(toShotSolutionDto(solutionOptional.get()));
+    return response;
+  }
+
+  /**
+   * Returns the from optional shot solution dto value maintained by this Repulsor component.
+   *
+   * @param response value used by this operation.
+   * @return optional shot solution produced by this operation.
+   */
+  public static Optional<ShotSolution> fromOptionalShotSolutionDto(
+      DragShotAutoResponseDTO response) {
+    if (response == null || !response.isPresent() || response.getSolution() == null) {
+      return Optional.empty();
+    }
+
+    ShotSolution solution = fromShotSolutionDto(response.getSolution());
+    return solution == null ? Optional.empty() : Optional.of(solution);
+  }
+
+  /**
+   * Returns the to obstacle dtos value maintained by this Repulsor component.
+   *
+   * @param dynamicObstacles obstacle set used for safety checks, costs, or replanning.
+   * @return list of obstacle dto values produced by this operation.
+   */
+  public static List<ObstacleDTO> toObstacleDtos(List<? extends Obstacle> dynamicObstacles) {
+    List<ObstacleDTO> output = new ArrayList<>();
+    if (dynamicObstacles == null) {
+      return output;
+    }
+
+    for (Obstacle obstacle : dynamicObstacles) {
+      ObstacleDTO dto = toObstacleDto(obstacle);
+      if (dto != null) {
+        output.add(dto);
+      }
+    }
+    return output;
+  }
+
+  /**
+   * Returns the from obstacle dtos value maintained by this Repulsor component.
+   *
+   * @param obstacleDtos obstacle set used for safety checks, costs, or replanning.
+   * @return value produced by this operation.
+   */
+  public static List<Obstacle> fromObstacleDtos(List<ObstacleDTO> obstacleDtos) {
+    List<Obstacle> output = new ArrayList<>();
+    if (obstacleDtos == null) {
+      return output;
+    }
+
+    for (ObstacleDTO dto : obstacleDtos) {
+      output.add(fromObstacleDto(dto));
+    }
+    return output;
+  }
+
+  private static Obstacle fromObstacleDto(ObstacleDTO dto) {
+    if (dto != null && "PREDICTED_ELLIPSE".equals(dto.getKind())) {
+      return new PredictedDynamicObstacleEnvelope(
+          new Translation2d(dto.getX(), dto.getY()),
+          Math.max(0.0, dto.getSizeX() * 0.5),
+          Math.max(0.0, dto.getSizeY() * 0.5),
+          dto.getStrength(),
+          dto.getHorizonWeight(),
+          dto.getHorizonStep());
+    }
+    return new SerializedObstacle(dto);
+  }
+
+  private static ObstacleDTO toObstacleDto(Obstacle obstacle) {
+    if (obstacle == null) {
+      return null;
+    }
+
+    ObstacleDTO dto = new ObstacleDTO();
+    dto.setStrength(obstacle.strength);
+    dto.setPositive(obstacle.positive);
+
+    if (obstacle instanceof PredictedDynamicObstacleEnvelope prediction) {
+      dto.setKind("PREDICTED_ELLIPSE");
+      dto.setX(prediction.center.getX());
+      dto.setY(prediction.center.getY());
+      dto.setSizeX(prediction.radiusX * 2.0);
+      dto.setSizeY(prediction.radiusY * 2.0);
+      dto.setHorizonWeight(prediction.horizonWeight);
+      dto.setHorizonStep(prediction.horizonStep);
+      return dto;
+    }
+
+    if (obstacle instanceof VisionPlanner.VisionObstacle vision) {
+      dto.setKind("ELLIPSE");
+      dto.setX(vision.loc.getX());
+      dto.setY(vision.loc.getY());
+      dto.setSizeX(vision.sizeX);
+      dto.setSizeY(vision.sizeY);
+      return dto;
+    }
+
+    if (obstacle instanceof PointObstacle point) {
+      dto.setKind("CIRCLE");
+      dto.setX(point.loc.getX());
+      dto.setY(point.loc.getY());
+      dto.setRadius(point.radius);
+      return dto;
+    }
+
+    if (obstacle instanceof SnowmanObstacle snowman) {
+      dto.setKind("CIRCLE");
+      dto.setX(snowman.loc.getX());
+      dto.setY(snowman.loc.getY());
+      dto.setRadius(snowman.radius);
+      return dto;
+    }
+
+    if (obstacle instanceof HorizontalObstacle horizontal) {
+      dto.setKind("LINE_H");
+      dto.setY(horizontal.y);
+      return dto;
+    }
+
+    if (obstacle instanceof VerticalObstacle vertical) {
+      dto.setKind("LINE_V");
+      dto.setX(vertical.x);
+      return dto;
+    }
+
+    if (obstacle instanceof SquareObstacle square) {
+      dto.setKind("BOX");
+      dto.setX(square.center.getX());
+      dto.setY(square.center.getY());
+      dto.setSizeX(square.halfSize * 2.0);
+      dto.setSizeY(square.halfSize * 2.0);
+      return dto;
+    }
+
+    return null;
+  }
+
+  private static final class SnapshotGamePiecePhysics extends GamePiecePhysics {
+    private final double massKg;
+    private final double crossSectionAreaM2;
+    private final double dragCoefficient;
+    private final double airDensityKgPerM3;
+
+    SnapshotGamePiecePhysics(
+        double massKg,
+        double crossSectionAreaM2,
+        double dragCoefficient,
+        double airDensityKgPerM3) {
+      this.massKg = massKg;
+      this.crossSectionAreaM2 = crossSectionAreaM2;
+      this.dragCoefficient = dragCoefficient;
+      this.airDensityKgPerM3 = airDensityKgPerM3;
+    }
+
+    /**
+     * Returns the mass kg value maintained by this Repulsor component.
+     *
+     * @return value produced by this operation.
+     */
+    @Override
+    public double massKg() {
+      return massKg;
+    }
+
+    /**
+     * Returns the cross section area m2 value maintained by this Repulsor component.
+     *
+     * @return value produced by this operation.
+     */
+    @Override
+    public double crossSectionAreaM2() {
+      return crossSectionAreaM2;
+    }
+
+    /**
+     * Returns the drag coefficient value maintained by this Repulsor component.
+     *
+     * @return value produced by this operation.
+     */
+    @Override
+    public double dragCoefficient() {
+      return dragCoefficient;
+    }
+
+    /**
+     * Returns the air density kg per m3 value maintained by this Repulsor component.
+     *
+     * @return value produced by this operation.
+     */
+    @Override
+    public double airDensityKgPerM3() {
+      return airDensityKgPerM3;
+    }
+  }
+
+  private static final class SerializedObstacle extends Obstacle {
+    private final String kind;
+    private final double x;
+    private final double y;
+    private final double sizeX;
+    private final double sizeY;
+    private final double radius;
+
+    SerializedObstacle(ObstacleDTO dto) {
+      super(dto == null ? 0.0 : dto.getStrength(), dto == null || dto.isPositive());
+      kind = dto == null ? "UNKNOWN" : dto.getKind();
+      x = dto == null ? 0.0 : dto.getX();
+      y = dto == null ? 0.0 : dto.getY();
+      sizeX = dto == null ? 0.0 : dto.getSizeX();
+      sizeY = dto == null ? 0.0 : dto.getSizeY();
+      radius = dto == null ? 0.0 : dto.getRadius();
+    }
+
+    /**
+     * Returns the get force at position value maintained by this Repulsor component.
+     *
+     * @param position value used by this operation.
+     * @param target value used by this operation.
+     * @return value produced by this operation.
+     */
+    @Override
+    public Force getForceAtPosition(Translation2d position, Translation2d target) {
+      return new Force();
+    }
+
+    /**
+     * Returns the intersects rectangle value maintained by this Repulsor component.
+     *
+     * @param rectCorners value used by this operation.
+     * @return value produced by this operation.
+     */
+    @Override
+    public boolean intersectsRectangle(Translation2d[] rectCorners) {
+      if ("LINE_H".equals(kind)) {
+        for (Translation2d corner : rectCorners) {
+          if (Math.abs(corner.getY() - y) < 0.1) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      if ("LINE_V".equals(kind)) {
+        for (Translation2d corner : rectCorners) {
+          if (Math.abs(corner.getX() - x) < 0.1) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      Translation2d center = new Translation2d(x, y);
+
+      if ("CIRCLE".equals(kind)) {
+        if (FieldPlanner.isPointInPolygon(center, rectCorners)) {
+          return true;
+        }
+
+        for (Translation2d corner : rectCorners) {
+          if (corner.getDistance(center) < radius) {
+            return true;
+          }
+        }
+
+        for (int i = 0; i < rectCorners.length; i++) {
+          Translation2d a = rectCorners[i];
+          Translation2d b = rectCorners[(i + 1) % rectCorners.length];
+          if (FieldPlanner.distanceFromPointToSegment(center, a, b) < radius) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      if ("ELLIPSE".equals(kind)) {
+        if (FieldPlanner.isPointInPolygon(center, rectCorners)) {
+          return true;
+        }
+
+        double rx = sizeX / 2.0;
+        double ry = sizeY / 2.0;
+        for (Translation2d corner : rectCorners) {
+          double dx = corner.getX() - center.getX();
+          double dy = corner.getY() - center.getY();
+          if ((dx * dx) / (rx * rx) + (dy * dy) / (ry * ry) <= 1.0) {
+            return true;
+          }
+        }
+
+        double boundingRadius = Math.max(rx, ry);
+        for (int i = 0; i < rectCorners.length; i++) {
+          Translation2d a = rectCorners[i];
+          Translation2d b = rectCorners[(i + 1) % rectCorners.length];
+          if (FieldPlanner.distanceFromPointToSegment(center, a, b) < boundingRadius) {
+            return true;
+          }
+        }
+        return false;
+      }
+
+      if ("BOX".equals(kind)) {
+        double halfX = sizeX * 0.5;
+        double halfY = sizeY * 0.5;
+        double minX = center.getX() - halfX;
+        double maxX = center.getX() + halfX;
+        double minY = center.getY() - halfY;
+        double maxY = center.getY() + halfY;
+
+        for (Translation2d corner : rectCorners) {
+          if (corner.getX() >= minX
+              && corner.getX() <= maxX
+              && corner.getY() >= minY
+              && corner.getY() <= maxY) {
+            return true;
+          }
+        }
+      }
+
+      return false;
+    }
+  }
+}
